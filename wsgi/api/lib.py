@@ -1,5 +1,5 @@
 from flask import jsonify
-from models import db, Cuadrantes, Cuadrantes_Poly
+from .models import db, Cuadrantes, Cuadrantes_Poly
 from datetime import datetime
 from sqlalchemy import func, and_
 import time

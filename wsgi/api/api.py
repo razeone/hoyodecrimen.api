@@ -1,12 +1,25 @@
-from flask import Blueprint, Flask, jsonify, \
-    request, abort, make_response, url_for, \
-    send_from_directory, send_file, current_app
+from flask import Blueprint
+from flask import Flask
+from flask import jsonify
+from flask import request
+from flask import abort
+from flask import make_response
+from flask import url_for
+from flask import send_from_directory
+from flask import send_file
+from flask import current_app
 from flask_sqlalchemy import SQLAlchemy
 #from flask_sqlalchemy import get_debug_queries
-from sqlalchemy.sql import text, literal_column, literal
-from sqlalchemy.dialects.mssql import INTEGER, DATE
+from sqlalchemy.sql import text
+from sqlalchemy.sql import literal_column
+from sqlalchemy.sql import literal
+from sqlalchemy.dialects.mssql import INTEGER
+from sqlalchemy.dialects.mssql import DATE
 from sqlalchemy.orm import join
-from sqlalchemy import func, and_, or_, cast
+from sqlalchemy import func
+from sqlalchemy import and_
+from sqlalchemy import or_
+from sqlalchemy import cast
 from flask_cache import Cache
 from werkzeug.contrib.profiler import ProfilerMiddleware
 from functools import wraps
@@ -14,11 +27,10 @@ from geoalchemy2.elements import WKTElement
 from geoalchemy2.types import Geography
 import time
 import os
-from models import db, Cuadrantes, Cuadrantes_Poly, Municipios, Crime_latlong, pgj
-import lib
-from lib import InvalidAPIUsage
-from urlparse import urlparse
-from neighbors import neighbors
+from .models import db, Cuadrantes, Cuadrantes_Poly, Municipios, Crime_latlong, pgj
+from .lib import InvalidAPIUsage, check_date_month, month_sub, check_float
+from urllib.parse import urlparse
+from .neighbors import neighbors
 from flask_sqlalchemy import get_debug_queries
 
 
@@ -101,10 +113,10 @@ def check_dates(start_period, end_period, default_start=None):
     start_period += '-01'
     end_period += '-01'
     if end_period != '-01' or start_period != '-01':
-        if not lib.check_date_month(start_period):
+        if not check_date_month(start_period):
             raise InvalidAPIUsage('something is wrong with the '
                                   'start_date date you provided')
-        if not lib.check_date_month(end_period):
+        if not check_date_month(end_period):
             raise InvalidAPIUsage('something is wrong with the '
                                   'end_date date you provided')
         if start_period > end_period:
@@ -117,7 +129,7 @@ def check_dates(start_period, end_period, default_start=None):
             with_entities(func.max(Cuadrantes.date).label('date')). \
             scalar()
         if not default_start:
-            start_date = lib.month_sub(max_date, -11)
+            start_date = month_sub(max_date, -11)
         else:
             start_date = default_start
     return start_date, max_date
@@ -258,9 +270,9 @@ def pip(long, lat):
     # sql_query = """SELECT ST_AsGeoJSON(geom) as geom,id,sector
     #                 FROM cuadrantes_poly
     #                 where ST_Contains(geom,ST_GeometryFromText('POINT(-99.13 19.43)',4326))=True;"""
-    if not lib.check_float(long):
+    if not check_float(long):
         raise InvalidAPIUsage('something is wrong with the longitude you provided')
-    if not lib.check_float(lat):
+    if not check_float(lat):
         raise InvalidAPIUsage('something is wrong with the latitude you provided')
     point = WKTElement("POINT(%s %s)" % (long, lat), srid=4326)
     results_pip = Cuadrantes_Poly.query. \
@@ -289,7 +301,7 @@ def get_df_period(start_date, max_date, crime):
         filter(*filters). \
         with_entities(func.upper(Cuadrantes.crime).label('crime'),
                       func.sum(Cuadrantes.count).label('count'),
-                      func.sum(Cuadrantes.population).op("/")(lib.month_diff(max_date, start_date)).label('population')). \
+                      func.sum(Cuadrantes.population).op("/")(month_diff(max_date, start_date)).label('population')). \
         group_by(Cuadrantes.crime). \
         order_by(Cuadrantes.crime). \
         all()
@@ -310,7 +322,7 @@ def get_cuad_period(cuadrante, crime, start_date, max_date):
         filter(*filters). \
         with_entities(func.upper(Cuadrantes.crime).label('crime'),
                       func.sum(Cuadrantes.count).label('count'),
-                      func.sum(Cuadrantes.population).op("/")(lib.month_diff(max_date, start_date)).label('population')). \
+                      func.sum(Cuadrantes.population).op("/")(month_diff(max_date, start_date)).label('population')). \
         group_by(Cuadrantes.crime). \
         order_by(Cuadrantes.crime). \
         all()
@@ -330,7 +342,7 @@ def get_cuad_period_neighbors(cuadrante, crime, start_date, max_date):
         filter(*filters). \
         with_entities(func.upper(Cuadrantes.crime).label('crime'),
                       func.sum(Cuadrantes.count).label('count'),
-                      func.sum(Cuadrantes.population).op("/")(lib.month_diff(max_date, start_date)).label('population')). \
+                      func.sum(Cuadrantes.population).op("/")(month_diff(max_date, start_date)).label('population')). \
         group_by(Cuadrantes.crime). \
         order_by(Cuadrantes.crime). \
         all()
@@ -472,10 +484,10 @@ def frontpage(crime, long, lat):
     end_date = request.args.get('end_date', '', type=str)
     start_date, max_date = check_dates(start_date, end_date)
 
-    if not lib.check_float(long):
+    if not check_float(long):
         raise InvalidAPIUsage('something is wrong with the longitude you provided')
         #abort(abort(make_response('something is wrong with the longitude you provided', 400)))
-    if not lib.check_float(lat):
+    if not check_float(lat):
         raise InvalidAPIUsage('something is wrong with the latitude you provided')
         #abort(abort(make_response('something is wrong with the latitude you provided', 400)))
     point = WKTElement("POINT(%s %s)" % (long, lat), srid=4326)
@@ -495,9 +507,9 @@ def frontpage(crime, long, lat):
     else:
         raise InvalidAPIUsage("You're not inside the Federal District provinciano", 404)
     return jsonify(pip=json_results,
-                   cuadrante=lib.results_to_array(results_cuad),
-                   df_period=lib.results_to_array(results_df_period),
-                   cuadrante_period=lib.results_to_array(results_cuad_period))
+                   cuadrante=results_to_array(results_cuad),
+                   df_period=results_to_array(results_df_period),
+                   cuadrante_period=results_to_array(results_cuad_period))
 
 
 @API.route('/cuadrantes/crimes/<string:crime>/pip_extra/'
@@ -587,10 +599,10 @@ def frontpage_extra(crime, long, lat):
     end_date = request.args.get('end_date', '', type=str)
     start_date, max_date = check_dates(start_date, end_date)
 
-    if not lib.check_float(long):
+    if not check_float(long):
         raise InvalidAPIUsage('something is wrong with the longitude you provided')
         #abort(abort(make_response('something is wrong with the longitude you provided', 400)))
-    if not lib.check_float(lat):
+    if not check_float(lat):
         raise InvalidAPIUsage('something is wrong with the latitude you provided')
         #abort(abort(make_response('something is wrong with the latitude you provided', 400)))
     point = WKTElement("POINT(%s %s)" % (long, lat), srid=4326)
