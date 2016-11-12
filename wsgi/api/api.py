@@ -28,7 +28,8 @@ from geoalchemy2.types import Geography
 import time
 import os
 from .models import db, Cuadrantes, Cuadrantes_Poly, Municipios, Crime_latlong, pgj
-from .lib import InvalidAPIUsage, check_date_month, month_sub, check_float
+from .lib import InvalidAPIUsage, check_date_month, month_sub, check_float, month_diff
+from .lib import check_periods, ResultProxy_to_json, results_to_array, results_to_json
 from urllib.parse import urlparse
 from .neighbors import neighbors
 from flask_sqlalchemy import get_debug_queries
@@ -39,7 +40,7 @@ _basedir = os.path.abspath(os.path.dirname(__file__))
 # Use redis if not running in Openshift
 if 'OPENSHIFT_APP_UUID' not in os.environ:
     cache = Cache(config={
-        'CACHE_TYPE': 'null',  # null or simple
+        'CACHE_TYPE': 'redis',  # null or simple
         'CACHE_DIR': '/tmp',
         'CACHE_DEFAULT_TIMEOUT': 922337203685477580,
         'CACHE_THRESHOLD': 922337203685477580,
@@ -389,7 +390,7 @@ def get_cuad_series(cuadrante, crime):
     #     filter(and_(Cuadrantes.date <= max_date, Cuadrantes.date >= start_date)). \
     #     with_entities(func.upper(Cuadrantes.crime).label('crime'),
     #                   func.sum(Cuadrantes.count).label('count'),
-    #                   func.sum(Cuadrantes.population).op("/")(lib.month_diff(max_date, start_date)).label('population')). \
+    #                   func.sum(Cuadrantes.population).op("/")(month_diff(max_date, start_date)).label('population')). \
     #     group_by(Cuadrantes.crime). \
     #     order_by(Cuadrantes.crime). \
     #     all()
@@ -397,7 +398,7 @@ def get_cuad_series(cuadrante, crime):
     #     filter(*filters). \
     #     with_entities(func.upper(Cuadrantes.crime).label('crime'),
     #                   func.sum(Cuadrantes.count).label('count'),
-    #                   func.sum(Cuadrantes.population).op("/")(lib.month_diff(max_date, start_date)).label('population')). \
+    #                   func.sum(Cuadrantes.population).op("/")(month_diff(max_date, start_date)).label('population')). \
     #     group_by(Cuadrantes.crime). \
     #     order_by(Cuadrantes.crime). \
     #     all()
@@ -634,9 +635,9 @@ def frontpage_extra(crime, long, lat):
         raise InvalidAPIUsage("You're not inside the Federal District provinciano", 404)
     #import pdb;pdb.set_trace();get_debug_queries()[5]
     return jsonify(pip=json_results,
-                   cuadrante=lib.results_to_array(results_cuad),
-                   df_period=lib.results_to_array(results_df_period),
-                   cuadrante_period=lib.results_to_array(results_cuad_period),
+                   cuadrante=results_to_array(results_cuad),
+                   df_period=results_to_array(results_df_period),
+                   cuadrante_period=results_to_array(results_cuad_period),
                    latlong=results_sphere)
 
 
@@ -738,10 +739,10 @@ def latlong(crime, long, lat, distance):
     if distance <= 0:
         raise InvalidAPIUsage('distance has to be greater than zero')
 
-    if not lib.check_float(long):
+    if not check_float(long):
         raise InvalidAPIUsage('something is wrong with the longitude you provided')
         #abort(abort(make_response('something is wrong with the longitude you provided', 400)))
-    if not lib.check_float(lat):
+    if not check_float(lat):
         raise InvalidAPIUsage('something is wrong with the latitude you provided')
         #abort(abort(make_response('something is wrong with the latitude you provided', 400)))
 
@@ -760,7 +761,7 @@ def latlong(crime, long, lat, distance):
         all()
 
 
-    return jsonify(rows=lib.results_to_array(results_sphere, truncate_date=False))
+    return jsonify(rows=results_to_array(results_sphere, truncate_date=False))
 
 
 
@@ -904,7 +905,7 @@ def hours_df(crime):
     #                   func.count(Crime_latlong.crime).label('count')) \
     #     .filter() \
     #     .all()
-    return lib.results_to_json(results)
+    return results_to_json(results)
 
 
 @API.route('/df/crimes/<string:crime>/days',
@@ -1024,7 +1025,7 @@ def days_df(crime):
         .order_by(func.mod(func.cast(max.c.dow, INTEGER) + 1, 7), Crime_latlong.crime,
                   func.extract('dow', func.cast(Crime_latlong.date, DATE))) \
         .all()
-    return lib.results_to_json(results)
+    return results_to_json(results)
 
 
 @API.route('/df/crimes/<string:crime>/series',
@@ -1094,7 +1095,7 @@ def df_all(crime):
         group_by(Cuadrantes.date, Cuadrantes.crime). \
         order_by(Cuadrantes.crime, Cuadrantes.date). \
         all()
-    return lib.results_to_json(results)
+    return results_to_json(results)
 
 @API.route('/df/crimes/<string:crime>/series_extra',
            methods=['GET'])
@@ -1129,7 +1130,7 @@ def df_crime_extra_all(crime):
         group_by(Cuadrantes.date, Cuadrantes.crime). \
         order_by(Cuadrantes.crime, Cuadrantes.date). \
         all()
-    return jsonify(ssp=lib.results_to_array(results), pgj=lib.results_to_array(pgj_result))
+    return jsonify(ssp=results_to_array(results), pgj=results_to_array(pgj_result))
 
 
 
@@ -1208,7 +1209,7 @@ def cuadrantes(cuadrante, crime):
                       Cuadrantes.population). \
         order_by(Cuadrantes.cuadrante, Cuadrantes.crime, Cuadrantes.date). \
         all()
-    return lib.results_to_json(results)
+    return results_to_json(results)
 
 
 @API.route('/sectores/<string:sector>'
@@ -1283,7 +1284,7 @@ def sectors(crime, sector):
         group_by(Cuadrantes.crime, Cuadrantes.date, Cuadrantes.sector). \
         order_by(Cuadrantes.sector, Cuadrantes.crime, Cuadrantes.date). \
         all()
-    return lib.results_to_json(results)
+    return results_to_json(results)
 
 
 @API.route('/municipios/<string:municipio>'
@@ -1352,7 +1353,7 @@ def municipios_series(crime, municipio):
         group_by(Cuadrantes.crime, Cuadrantes.date, Municipios.municipio, Municipios.cvegeo). \
         order_by(Municipios.municipio, Cuadrantes.crime, Cuadrantes.date). \
         all()
-    return lib.results_to_json(results)
+    return results_to_json(results)
 
 
 @API.route('/cuadrantes/<string:cuadrante>/crimes/<string:crime>/period',
@@ -1426,11 +1427,11 @@ def cuadrantes_sum_all(cuadrante, crime):
                       func.upper(Cuadrantes.sector).label('sector'),
                       func.upper(Cuadrantes.crime).label('crime'),
                       func.sum(Cuadrantes.count).label("count"),
-                      func.sum(Cuadrantes.population).op("/")(lib.month_diff(max_date, start_date)).label("population")) \
+                      func.sum(Cuadrantes.population).op("/")(month_diff(max_date, start_date)).label("population")) \
         .group_by(Cuadrantes.crime, Cuadrantes.sector, Cuadrantes.cuadrante) \
         .order_by(Cuadrantes.crime, Cuadrantes.cuadrante) \
         .all()
-    return lib.results_to_json(results)
+    return results_to_json(results)
 
 
 @API.route('/sectores/<string:sector>/crimes/<string:crime>/period',
@@ -1501,11 +1502,11 @@ def sectores_sum_all(sector, crime):
                       func.upper(Cuadrantes.sector).label('sector'),
                       func.upper(Cuadrantes.crime).label('crime'),
                       func.sum(Cuadrantes.count).label("count"),
-                      func.sum(Cuadrantes.population).op("/")(lib.month_diff(max_date, start_date)).label("population")) \
+                      func.sum(Cuadrantes.population).op("/")(month_diff(max_date, start_date)).label("population")) \
         .group_by(Cuadrantes.crime, Cuadrantes.sector) \
         .order_by(Cuadrantes.crime, Cuadrantes.sector) \
         .all()
-    return lib.results_to_json(results)
+    return results_to_json(results)
 
 
 @API.route('/municipios/<string:municipio>/crimes/<string:crime>/period',
@@ -1579,11 +1580,11 @@ def municipios_sum_all(municipio, crime):
                       func.upper(Municipios.municipio).label('municipio'),
                       func.upper(Municipios.cvegeo).label('cve_mun'),
                       func.sum(Cuadrantes.count).label("count"),
-                      func.sum(Cuadrantes.population).op("/")(lib.month_diff(max_date, start_date)).label("population")) \
+                      func.sum(Cuadrantes.population).op("/")(month_diff(max_date, start_date)).label("population")) \
         .group_by(Cuadrantes.crime, Municipios.municipio, Municipios.cvegeo) \
         .order_by(Cuadrantes.crime, Municipios.municipio) \
         .all()
-    return lib.results_to_json(results)
+    return results_to_json(results)
 
 
 @API.route('/cuadrantes/<string:cuadrante>/crimes/<string:crime>/period/change',
@@ -1647,7 +1648,7 @@ def cuadrantes_change_sum_all(cuadrante, crime):
     start_period2 = request.args.get('start_period2', '', type=str)
     end_period1 = request.args.get('end_period1', '', type=str)
     end_period2 = request.args.get('end_period2', '', type=str)
-    max_date, max_date_minus3, max_date_last_year, max_date_last_year_minus3 = lib.check_periods(start_period1,
+    max_date, max_date_minus3, max_date_last_year, max_date_last_year_minus3 = check_periods(start_period1,
                                                                                              start_period2,
                                                                                              end_period1,
                                                                                              end_period2)
@@ -1681,7 +1682,7 @@ def cuadrantes_change_sum_all(cuadrante, crime):
     #import pdb; pdb.set_trace()
     results = db.session.execute(sql_query1 + sql_query2 + sql_query3 + sql_query4,
                                   crime_data)
-    return lib.ResultProxy_to_json(results)
+    return ResultProxy_to_json(results)
 
 
 @API.route('/sectores/<string:sector>/crimes/<string:crime>/period/change',
@@ -1744,7 +1745,7 @@ def sectores_change_sum_all(sector, crime):
     start_period2 = request.args.get('start_period2', '', type=str)
     end_period1 = request.args.get('end_period1', '', type=str)
     end_period2 = request.args.get('end_period2', '', type=str)
-    max_date, max_date_minus3, max_date_last_year, max_date_last_year_minus3 = lib.check_periods(start_period1,
+    max_date, max_date_minus3, max_date_last_year, max_date_last_year_minus3 = check_periods(start_period1,
                                                                                              start_period2,
                                                                                              end_period1,
                                                                                              end_period2)
@@ -1778,7 +1779,7 @@ def sectores_change_sum_all(sector, crime):
     #import pdb; pdb.set_trace()
     results = db.session.execute(sql_query1 + sql_query2 + sql_query3 + sql_query4,
                                   crime_data)
-    return lib.ResultProxy_to_json(results)
+    return ResultProxy_to_json(results)
 
 
 @API.route('/crimes',
@@ -1825,7 +1826,7 @@ def listcrimes():
         order_by(Cuadrantes.crime). \
         distinct(). \
         all()
-    return lib.results_to_json(results)
+    return results_to_json(results)
 
 @API.route('/crimes_extra',
            methods=['GET'])
@@ -1893,7 +1894,7 @@ def listcuadrantes():
         order_by(Municipios.municipio, Municipios.sector, Municipios.cuadrante). \
         distinct(). \
         all()
-    return lib.results_to_json(results)
+    return results_to_json(results)
 
 
 @API.route('/sectores',
@@ -1939,7 +1940,7 @@ def listsectores():
         order_by(Municipios.municipio, Municipios.sector). \
         distinct(). \
         all()
-    return lib.results_to_json(results)
+    return results_to_json(results)
 
 
 @API.route('/municipios',
@@ -1985,7 +1986,7 @@ def list_municipios():
         order_by(Municipios.municipio, Municipios.sector, Municipios.cuadrante). \
         distinct(). \
         all()
-    return lib.results_to_json(results)
+    return results_to_json(results)
 
 @API.route('/cuadrantes/crimes/<string:crime>/top/counts',
            methods=['GET'])
@@ -2069,7 +2070,7 @@ def top5cuadrantes(crime):
                                                                        'crime': crime,
                                                                        'rank': rank})
     results = db.session.execute(sql_query + sql_query2 + sql_query3, crime_data)
-    return lib.ResultProxy_to_json(results)
+    return ResultProxy_to_json(results)
 
 
 # @API.route('/municipios/crimes/<string:crime>/top/counts',
@@ -2153,9 +2154,9 @@ def top5cuadrantes(crime):
 #     results = db.session.execute(sql_query + sql_query2 + sql_query3, {'start_date': start_date,
 #                                                                        'max_date': max_date,
 #                                                                        'crime': crime,
-#                                                                        'num_months': lib.month_diff(max_date, start_date),
+#                                                                        'num_months': month_diff(max_date, start_date),
 #                                                                        'rank': rank})
-#     return lib.ResultProxy_to_json(results)
+#     return ResultProxy_to_json(results)
 
 
 @API.route('/sectores/crimes/<string:crime>/top/rates',
@@ -2241,10 +2242,10 @@ def top5sectores(crime):
     crime_data.update({'start_date': start_date,
                        'max_date': max_date,
                        'crime': crime,
-                       'num_months': lib.month_diff(max_date, start_date),
+                       'num_months': month_diff(max_date, start_date),
                        'rank': rank})
     results = db.session.execute(sql_query + sql_query2 + sql_query3, crime_data)
-    return lib.ResultProxy_to_json(results)
+    return ResultProxy_to_json(results)
 
 
 @API.route('/cuadrantes/crimes/<string:crime>/top/counts/change',
@@ -2314,7 +2315,7 @@ def top5changecuadrantes(crime):
     rank = request.args.get('rank', 5, type=int)
     if rank <= 0:
         raise InvalidAPIUsage('Rank must be greater than zero')
-    max_date, max_date_minus3, max_date_last_year, max_date_last_year_minus3 = lib.check_periods(start_period1,
+    max_date, max_date_minus3, max_date_last_year, max_date_last_year_minus3 = check_periods(start_period1,
                                                                                              start_period2,
                                                                                              end_period1,
                                                                                              end_period2)
@@ -2355,6 +2356,6 @@ def top5changecuadrantes(crime):
                                                                         'crime': crime,
                                                                         'rank': rank})
     results = db.session.execute(sql_query1 + sql_query2 + sql_query3, crime_data)
-    return lib.ResultProxy_to_json(results)
+    return ResultProxy_to_json(results)
 
 

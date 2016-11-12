@@ -1,7 +1,16 @@
 from datetime import datetime
-from flask import Blueprint, Flask, jsonify, request, abort, \
-    make_response, url_for, send_from_directory,\
-    send_file, render_template, g, Response
+from flask import Blueprint
+from flask import Flask
+from flask import jsonify
+from flask import request
+from flask import abort
+from flask import make_response
+from flask import url_for
+from flask import send_from_directory
+from flask import send_file
+from flask import render_template
+from flask import g
+from flask import Response
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.sql import text, literal_column, literal
 from sqlalchemy import func, and_
@@ -12,7 +21,10 @@ from functools import wraps
 from geoalchemy2.elements import WKTElement
 import time
 import os
-from api.models import db, Cuadrantes, Cuadrantes_Poly
+from api.models import db
+from api.models import Cuadrantes
+from api.models import Cuadrantes_Poly
+from api.lib import *
 #from redis import Redis
 from api.api import API, cache
 from flask.ext.compress import Compress

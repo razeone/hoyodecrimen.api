@@ -19,7 +19,6 @@ class InvalidAPIUsage(Exception):
         rv['error'] = self.message
         return rv
 
-
 def ResultProxy_to_json(results):
     json_results = []
     keys = results.keys()
