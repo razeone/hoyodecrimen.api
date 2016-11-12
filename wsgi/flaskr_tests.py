@@ -17,7 +17,8 @@ class FlaskTestCase(unittest.TestCase):
 
     # Check that the API correctly deals with date parameters
     def test_error_api_v1_top_counts_change_cuadrantes_dates(self):
-        base_url = '/api/v1/cuadrantes/crimes/homicidio%20doloso/top/counts/change'
+        api_url = '/api/v1/cuadrantes/crimes'
+        base_url = api_url + '/homicidio%20doloso/top/counts/change'
         tester = app.test_client(self)
         response = tester.get(base_url +
                               '?start_period1=2013-01&end_period1=' +
@@ -337,7 +338,7 @@ class FlaskTestCase(unittest.TestCase):
         self.assertNotEqual(response.data, {"rows": []})
 
     # Check the API endpoint
-    def test_api_v1_pip(self):
+    def test_api_v1_pip_date(self):
         tester = app.test_client(self)
         response = tester.get('/api/v1/latlong/crimes/' +
                               'ROBO%20A%20TRANSEUNTE%20C.V.,' +
@@ -355,7 +356,7 @@ class FlaskTestCase(unittest.TestCase):
         self.assertNotEqual(response.data, {"rows": []})
 
     # Check the API endpoint
-    def test_api_v1_pip(self):
+    def test_api_v1_pip_extra(self):
         tester = app.test_client(self)
         response = tester.get('/api/v1/cuadrantes/crimes/HOMICIDIO%20DOLOSO,' +
                               'LESIONES%20POR%20ARMA%20DE%20FUEGO,' +
@@ -379,31 +380,31 @@ class FlaskTestCase(unittest.TestCase):
         response = tester.get(base_url, content_type="text/html")
         self.assertEqual(response.status_code, 200)
 
-    def test_df_crimes_series(self):
+    def test_en_rates(self):
         base_url = '/en/rates'
         tester = app.test_client(self)
         response = tester.get(base_url, content_type="text/html")
         self.assertEqual(response.status_code, 200)
 
-    def test_df_crimes_series(self):
+    def test_en_counts(self):
         base_url = '/en/counts'
         tester = app.test_client(self)
         response = tester.get(base_url, content_type="text/html")
         self.assertEqual(response.status_code, 200)
 
-    def test_df_crimes_series(self):
+    def test_en_trends(self):
         base_url = '/en/trends'
         tester = app.test_client(self)
         response = tester.get(base_url, content_type="text/html")
         self.assertEqual(response.status_code, 200)
 
-    def test_df_crimes_series(self):
+    def test_en_sectors_map(self):
         base_url = '/en/sectors-map'
         tester = app.test_client(self)
         response = tester.get(base_url, content_type="text/html")
         self.assertEqual(response.status_code, 200)
 
-    def test_df_crimes_series(self):
+    def test_en_cuadrantes_map(self):
         base_url = '/en/cuadrantes-map'
         tester = app.test_client(self)
         response = tester.get(base_url, content_type="text/html")
@@ -421,31 +422,31 @@ class FlaskTestCase(unittest.TestCase):
         response = tester.get(base_url, content_type="text/html")
         self.assertEqual(response.status_code, 200)
 
-    def test_df_crimes_series2(self):
+    def test_numero(self):
         base_url = '/numero'
         tester = app.test_client(self)
         response = tester.get(base_url, content_type="text/html")
         self.assertEqual(response.status_code, 200)
 
-    def test_df_crimes_series2(self):
+    def test_tendencias(self):
         base_url = '/tendencias'
         tester = app.test_client(self)
         response = tester.get(base_url, content_type="text/html")
         self.assertEqual(response.status_code, 200)
 
-    def test_df_crimes_series2(self):
+    def test_sectors_mapa(self):
         base_url = '/sectors-mapa'
         tester = app.test_client(self)
         response = tester.get(base_url, content_type="text/html")
         self.assertEqual(response.status_code, 200)
 
-    def test_df_crimes_series2(self):
+    def test_cuadrantes_mapa(self):
         base_url = '/cuadrantes-mapa'
         tester = app.test_client(self)
         response = tester.get(base_url, content_type="text/html")
         self.assertEqual(response.status_code, 200)
 
-    def test_df_api(self):
+    def test_api(self):
         base_url = '/api/'
         tester = app.test_client(self)
         response = tester.get(base_url, content_type="text/html")
